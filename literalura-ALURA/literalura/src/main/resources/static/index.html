@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>LiterAlura</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans&display=swap');
+        body {
+          margin: 0;
+          font-family: 'Open Sans', sans-serif;
+          background: url('tu-imagen.png') no-repeat center center fixed;
+          background-size: cover;
+          color: #fff;
+        }
+        .overlay {
+          background-color: rgba(30,30,30,0.85);
+          min-height: 100vh;
+          padding: 2rem;
+        }
+        h1 {
+          text-align: center;
+          font-size: 2.5rem;
+          margin-bottom: 2rem;
+        }
+        .search-bar {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 2rem;
+        }
+        .search-bar input {
+          width: 60%;
+          padding: 0.8rem;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+        }
+        .menu {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          max-width: 600px;
+          margin: auto;
+        }
+        .menu button {
+          display: flex;
+          align-items: center;
+          background-color: rgba(255,255,255,0.2);
+          border: none;
+          padding: 1rem;
+          border-radius: 10px;
+          box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+          font-size: 1rem;
+          font-weight: bold;
+          color: #fff;
+          cursor: pointer;
+        }
+        .menu button:hover {
+          background-color: rgba(255,255,255,0.35);
+        }
+        .menu i {
+          margin-right: 1rem;
+          font-size: 1.2rem;
+          color: #fafafa;
+        }
+        #resultados {
+          margin-top: 2rem;
+          max-width: 800px;
+          margin-inline: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .card {
+          background-color: rgba(255,255,255,0.1);
+          padding: 1rem;
+          border-radius: 8px;
+          color: #fff;
+        }
+    </style>
+</head>
+<body>
+<div class="overlay">
+    <h1>LiterAlura</h1>
+    <div class="search-bar">
+        <input type="text" id="busquedaInput" placeholder="Buscar por título o autor" />
+    </div>
+    <div class="menu">
+        <button onclick="listarLibrosGuardados()">📘 Listar libros guardados</button>
+        <button onclick="listarAutoresGuardados()">👤 Listar autores guardados</button>
+        <button onclick="autoresVivosEnAnio()">📅 Autores vivos en año</button>
+        <button onclick="listarLibrosPorIdioma()">🌐 Libros por idioma</button>
+        <button onclick="estadisticasDescargas()">📊 Estadísticas de descargas</button>
+        <button onclick="top10Descargados()">⭐ Top 10 más descargados</button>
+        <button onclick="buscarAutorPorNombre()">🔍 Buscar autor por nombre</button>
+        <button onclick="vaciarTodo()">🗑️ Vaciar todo</button>
+    </div>
+    <div id="resultados"></div>
+</div>
+
+<script>
+    // Script integrado - ahora funcionará
+    console.log("Script cargado correctamente");
+
+    const apiBase = 'https://gutendex.com/books';
+const apiBackup = 'https://www.gutendex.com/books'; // URL
+    window.librosBuscados = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM cargado");
+
+        const input = document.getElementById('busquedaInput');
+
+        if (input) {
+            console.log("Input encontrado");
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    console.log("Enter presionado");
+                    buscarLibros();
+                }
+            });
+        } else {
+            console.log("Input NO encontrado");
+        }
+    });
+
+    async function buscarLibros() {
+        const input = document.getElementById('busquedaInput');
+        const query = input.value.trim();
+
+        console.log("Buscando:", query);
+
+        if (!query) {
+            alert("Por favor ingresa un término de búsqueda");
+            return;
+        }
+
+        const container = document.getElementById('resultados');
+        container.innerHTML = '<div class="card">🔍 Buscando...</div>';
+
+        // Lista de URLs para probar
+        const urls = [
+            `${apiBase}?search=${encodeURIComponent(query)}`,
+            `${apiBackup}?search=${encodeURIComponent(query)}`,
+            `https://gutendx.com/books/?search=${encodeURIComponent(query)}`
+        ];
+
+        for (let i = 0; i < urls.length; i++) {
+            try {
+                const url = urls[i];
+                console.log(`Intentando URL ${i + 1}:`, url);
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log("Datos recibidos:", data);
+
+                container.innerHTML = '';
+                window.librosBuscados = [];
+
+                if (!data.results || data.results.length === 0) {
+                    container.innerHTML = '<div class="card">❌ No se encontraron resultados para tu búsqueda</div>';
+                    return;
+                }
+
+                data.results.slice(0, 10).forEach((libro, index) => {
+                    const libroData = {
+                        titulo: libro.title || 'Sin título',
+                        autor: libro.authors?.[0]?.name || 'Autor desconocido',
+                        idioma: libro.languages || ['unknown'],
+                        descargas: libro.download_count || 0,
+                        birth_year: libro.authors?.[0]?.birth_year || null,
+                        death_year: libro.authors?.[0]?.death_year || null
+                    };
+
+                    window.librosBuscados.push(libroData);
+
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.innerHTML = `
+                        <strong>${libroData.titulo}</strong><br>
+                        Autor: ${libroData.autor}<br>
+                        Idioma: ${libroData.idioma.join(', ')}<br>
+                        Descargas: ${libroData.descargas}<br><br>
+                        <button onclick="guardarLibro(${index})" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">💾 Guardar</button>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Si llegamos aquí, la búsqueda fue exitosa
+                return;
+
+            } catch (error) {
+                console.error(`Error con URL ${i + 1}:`, error);
+
+                // Si es la última URL y falló, mostrar error
+                if (i === urls.length - 1) {
+                    container.innerHTML = `
+                        <div class="card">
+                            ❌ Error de conexión<br>
+                            Verifica tu conexión a internet o intenta más tarde.<br><br>
+                            <strong>Posibles soluciones:</strong><br>
+                            • Verifica tu conexión a internet<br>
+                            • Intenta con una búsqueda diferente<br>
+                            • Recarga la página e intenta de nuevo
+                        </div>
+                    `;
+                }
+            }
+        }
+    }
+
+    function obtenerLibros() {
+        try {
+            return JSON.parse(localStorage.getItem('libros')) || [];
+        } catch (error) {
+            console.error('Error leyendo localStorage:', error);
+            return [];
+        }
+    }
+
+    function guardarLibro(index) {
+        console.log("Guardando libro índice:", index);
+
+        if (!window.librosBuscados || !window.librosBuscados[index]) {
+            alert('❌ Error: libro no encontrado');
+            return;
+        }
+
+        const libro = window.librosBuscados[index];
+        const libros = obtenerLibros();
+
+        // Verificar si ya existe
+        const existe = libros.some(l => l.titulo === libro.titulo && l.autor === libro.autor);
+
+        if (existe) {
+            alert('⚠️ Este libro ya está guardado');
+            return;
+        }
+
+        libros.push(libro);
+        localStorage.setItem('libros', JSON.stringify(libros));
+        alert('💾 Libro guardado correctamente');
+    }
+
+    function listarLibrosGuardados() {
+        console.log("Listando libros guardados");
+        const libros = obtenerLibros();
+        const container = document.getElementById('resultados');
+
+        if (libros.length === 0) {
+            container.innerHTML = '<div class="card">📚 No tienes libros guardados. Busca y guarda algunos libros primero.</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        libros.forEach(libro => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+                <strong>${libro.titulo}</strong><br>
+                Autor: ${libro.autor}<br>
+                Idioma: ${libro.idioma.join(', ')}<br>
+                Descargas: ${libro.descargas.toLocaleString()}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function listarAutoresGuardados() {
+        console.log("Listando autores guardados");
+        const libros = obtenerLibros();
+        const container = document.getElementById('resultados');
+
+        if (libros.length === 0) {
+            container.innerHTML = '<div class="card">👤 No tienes autores guardados. Busca y guarda algunos libros primero.</div>';
+            return;
+        }
+
+        const autores = [...new Set(libros.map(libro => libro.autor))];
+        container.innerHTML = '';
+
+        autores.forEach(autor => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `👤 <strong>${autor}</strong>`;
+            container.appendChild(div);
+        });
+    }
+
+    function autoresVivosEnAnio() {
+        console.log("Consultando autores vivos");
+        const libros = obtenerLibros();
+
+        if (libros.length === 0) {
+            alert('❌ No tienes libros guardados para consultar');
+            return;
+        }
+
+        const año = prompt('📅 Ingresa el año para consultar autores vivos:');
+        if (!año || isNaN(año)) {
+            alert('❌ Por favor ingresa un año válido');
+            return;
+        }
+
+        const añoNum = parseInt(año);
+        const container = document.getElementById('resultados');
+
+        const autoresVivos = libros.filter(libro =>
+            libro.birth_year &&
+            libro.birth_year <= añoNum &&
+            (!libro.death_year || libro.death_year >= añoNum)
+        );
+
+        if (autoresVivos.length === 0) {
+            container.innerHTML = `<div class="card">❌ No se encontraron autores vivos en el año ${año}</div>`;
+            return;
+        }
+
+        // Eliminar duplicados
+        const autoresUnicos = [];
+        const nombresVistos = new Set();
+
+        autoresVivos.forEach(libro => {
+            if (!nombresVistos.has(libro.autor)) {
+                nombresVistos.add(libro.autor);
+                autoresUnicos.push(libro);
+            }
+        });
+
+        container.innerHTML = '';
+        autoresUnicos.forEach(libro => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+                👤 <strong>${libro.autor}</strong><br>
+                Estaba vivo en ${año}<br>
+                Nacimiento: ${libro.birth_year}<br>
+                ${libro.death_year ? `Muerte: ${libro.death_year}` : 'Sin información de muerte'}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function listarLibrosPorIdioma() {
+        console.log("Filtrando por idioma");
+        const libros = obtenerLibros();
+
+        if (libros.length === 0) {
+            alert('❌ No tienes libros guardados para filtrar');
+            return;
+        }
+
+        const idioma = prompt('🌐 Ingresa el código de idioma (es, en, pt, fr...)');
+        if (!idioma) return;
+
+        const filtrados = libros.filter(libro =>
+            libro.idioma.includes(idioma.toLowerCase())
+        );
+
+        const container = document.getElementById('resultados');
+
+        if (filtrados.length === 0) {
+            container.innerHTML = `<div class="card">❌ No tienes libros en idioma "${idioma}"</div>`;
+            return;
+        }
+
+        container.innerHTML = '';
+        filtrados.forEach(libro => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+                <strong>${libro.titulo}</strong><br>
+                Autor: ${libro.autor}<br>
+                Idioma: ${libro.idioma.join(', ')}<br>
+                Descargas: ${libro.descargas.toLocaleString()}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function estadisticasDescargas() {
+        console.log("Mostrando estadísticas");
+        const libros = obtenerLibros();
+        const container = document.getElementById('resultados');
+
+        if (libros.length === 0) {
+            container.innerHTML = '<div class="card">📊 No tienes libros guardados para mostrar estadísticas</div>';
+            return;
+        }
+
+        const total = libros.reduce((sum, l) => sum + (l.descargas || 0), 0);
+        const promedio = (total / libros.length).toFixed(2);
+        const maximo = Math.max(...libros.map(l => l.descargas || 0));
+        const minimo = Math.min(...libros.map(l => l.descargas || 0));
+
+        container.innerHTML = `
+            <div class="card">
+                <strong>📊 Estadísticas de Descargas</strong><br><br>
+                📚 Total de libros: ${libros.length}<br>
+                📈 Total descargas: ${total.toLocaleString()}<br>
+                📊 Promedio: ${Number(promedio).toLocaleString()}<br>
+                🔥 Máximo: ${maximo.toLocaleString()}<br>
+                📉 Mínimo: ${minimo.toLocaleString()}
+            </div>
+        `;
+    }
+
+    function top10Descargados() {
+        console.log("Mostrando top 10");
+        const libros = obtenerLibros();
+        const container = document.getElementById('resultados');
+
+        if (libros.length === 0) {
+            container.innerHTML = '<div class="card">📚 No tienes libros guardados</div>';
+            return;
+        }
+
+        const top10 = libros
+            .sort((a, b) => (b.descargas || 0) - (a.descargas || 0))
+            .slice(0, 10);
+
+        container.innerHTML = '<div class="card"><strong>⭐ Top 10 Más Descargados</strong></div>';
+
+        top10.forEach((libro, index) => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+                <strong>#${index + 1} - ${libro.titulo}</strong><br>
+                Autor: ${libro.autor}<br>
+                Descargas: ${libro.descargas.toLocaleString()}
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function buscarAutorPorNombre() {
+        console.log("Buscando autor por nombre");
+        const nombre = prompt('🔍 Nombre del autor a buscar:');
+        if (!nombre) return;
+
+        buscarAutorEnAPI(nombre.trim());
+    }
+
+    async function buscarAutorEnAPI(nombreAutor) {
+        const container = document.getElementById('resultados');
+        container.innerHTML = '<div class="card">🔍 Buscando autor...</div>';
+
+        // Lista de URLs para probar
+        const urls = [
+            `${apiBase}?search=${encodeURIComponent(nombreAutor)}`,
+            `${apiBackup}?search=${encodeURIComponent(nombreAutor)}`,
+            `https://gutendx.com/books/?search=${encodeURIComponent(nombreAutor)}`
+        ];
+
+        for (let i = 0; i < urls.length; i++) {
+            try {
+                const url = urls[i];
+                console.log(`Buscando autor con URL ${i + 1}:`, url);
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.results || data.results.length === 0) {
+                    container.innerHTML = '<div class="card">❌ No se encontraron libros de este autor</div>';
+                    return;
+                }
+
+                const librosFiltrados = data.results.filter(libro =>
+                    libro.authors && libro.authors.some(autor =>
+                        autor.name.toLowerCase().includes(nombreAutor.toLowerCase())
+                    )
+                );
+
+                if (librosFiltrados.length === 0) {
+                    container.innerHTML = '<div class="card">❌ No se encontró este autor específico</div>';
+                    return;
+                }
+
+                container.innerHTML = `<div class="card"><strong>🔍 Resultados para "${nombreAutor}"</strong></div>`;
+                window.librosBuscados = [];
+
+                librosFiltrados.slice(0, 10).forEach((libro, index) => {
+                    const libroData = {
+                        titulo: libro.title || 'Sin título',
+                        autor: libro.authors?.[0]?.name || 'Autor desconocido',
+                        idioma: libro.languages || ['unknown'],
+                        descargas: libro.download_count || 0,
+                        birth_year: libro.authors?.[0]?.birth_year || null,
+                        death_year: libro.authors?.[0]?.death_year || null
+                    };
+
+                    window.librosBuscados.push(libroData);
+
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.innerHTML = `
+                        <strong>${libroData.titulo}</strong><br>
+                        Autor: ${libroData.autor}<br>
+                        Idioma: ${libroData.idioma.join(', ')}<br>
+                        Descargas: ${libroData.descargas.toLocaleString()}<br><br>
+                        <button onclick="guardarLibro(${index})" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">💾 Guardar</button>
+                    `;
+                    container.appendChild(div);
+                });
+
+                // Si llegamos aquí, la búsqueda fue exitosa
+                return;
+
+            } catch (error) {
+                console.error(`Error buscando autor con URL ${i + 1}:`, error);
+
+                // Si es la última URL y falló, mostrar error
+                if (i === urls.length - 1) {
+                    container.innerHTML = `
+                        <div class="card">
+                            ❌ Error al buscar autor<br>
+                            Verifica tu conexión a internet o intenta más tarde.<br><br>
+                            <strong>Posibles soluciones:</strong><br>
+                            • Verifica tu conexión a internet<br>
+                            • Intenta con otro nombre de autor<br>
+                            • Recarga la página e intenta de nuevo
+                        </div>
+                    `;
+                }
+            }
+        }
+    }
+
+    function vaciarTodo() {
+        console.log("Vaciando todo");
+        const libros = obtenerLibros();
+
+        if (libros.length === 0) {
+            alert('❌ No tienes libros guardados para eliminar');
+            return;
+        }
+
+        if (confirm('🗑️ ¿Eliminar todos los libros guardados?')) {
+            localStorage.removeItem('libros');
+            document.getElementById('resultados').innerHTML = '<div class="card">🗑️ Todos los libros eliminados</div>';
+            alert('✅ Libros eliminados correctamente');
+        }
+    }
+</script>
+</body>
+</html>
